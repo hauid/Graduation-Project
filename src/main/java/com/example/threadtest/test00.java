@@ -8,11 +8,12 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class test00 {
-    static class NoControl {
+    static class NoControl implements RateLimiter{
         private double time;
         private int requestCount = 0;
         private final long initTime = System.currentTimeMillis();
 
+        @Override
         public void handleRequest() {
             requestCount++;
             if (requestCount <= 100) {
@@ -29,7 +30,7 @@ public class test00 {
     }
 
     // FixedWindow类
-    static class FixedWindow {
+    static class FixedWindow implements RateLimiter{
         private final double window;
         private final int maxRequests;
         private int requests;
@@ -45,6 +46,7 @@ public class test00 {
             this.initTime = System.currentTimeMillis();
         }
 
+        @Override
         public void handleRequest() {
             long currentTime = System.currentTimeMillis();
             if ((currentTime - windowStart) > window * 1000) {
@@ -65,7 +67,7 @@ public class test00 {
         }
     }
 
-    static class SlidingWindow {
+    static class SlidingWindow implements RateLimiter{
         private final double window;
         private final int maxRequests;
         private Deque<Long> requests = new LinkedList<>();
@@ -77,6 +79,7 @@ public class test00 {
             this.maxRequests = maxRequests;
         }
 
+        @Override
         public void handleRequest() {
             long currentTime = System.currentTimeMillis();
             // 移除过期请求
@@ -96,7 +99,7 @@ public class test00 {
     }
 
     // TokenBucket类
-    static class TokenBucket {
+    static class TokenBucket implements RateLimiter{
         private final double rate;
         private final int cap;
         private double tokens;
@@ -111,6 +114,7 @@ public class test00 {
             this.lastFillTime = System.currentTimeMillis();
         }
 
+        @Override
         public void handleRequest() {
             long currentTime = System.currentTimeMillis();
             double timeElapsed = (currentTime - lastFillTime) / 1000.0; // 转换为秒
@@ -129,7 +133,7 @@ public class test00 {
     }
 
     // LeakyBucket类
-    static class LeakyBucket {
+    static class LeakyBucket implements RateLimiter{
         private final double rate;
         private final int cap;
         private double water;
@@ -143,6 +147,7 @@ public class test00 {
             this.lastFillTime = System.currentTimeMillis();
         }
 
+        @Override
         public void handleRequest() {
             long currentTime = System.currentTimeMillis();
             double timeElapsed = (currentTime - lastFillTime) / 1000.0;
@@ -161,7 +166,7 @@ public class test00 {
     }
 
     // TCPInspired类
-    static class TCPInspired {
+    static class TCPInspired implements RateLimiter{
         private final int initWindow;
         private int windowSize;
         private final double threshold;
@@ -174,6 +179,7 @@ public class test00 {
             this.threshold = threshold;
         }
 
+        @Override
         public void handleRequest() {
             if (slowStart) {
                 windowSize++;
@@ -194,14 +200,13 @@ public class test00 {
 
 
     public static void simulateRequests1() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-        Map<String, Object> algorithms = new HashMap<>();
+        Map<String, RateLimiter> algorithms = new HashMap<>(); // 类型改为 RateLimiter
         algorithms.put("al1", new NoControl());
         algorithms.put("al2", new FixedWindow(0.1, 3));
         algorithms.put("al3", new SlidingWindow(60, 5000));
         algorithms.put("al4", new TokenBucket(1, 2));
         algorithms.put("al5", new LeakyBucket(10, 200));
         algorithms.put("al6", new TCPInspired(100, 0.8));
-
 
         long startTime = System.currentTimeMillis();
         int rps = 1200;
@@ -215,8 +220,8 @@ public class test00 {
             for (var entry : algorithms.entrySet()) {
                 try {
                     System.out.print(entry.getKey() + ": ");
-                    entry.getValue().getClass().getMethod("handleRequest").invoke(entry.getValue());
-
+//                    entry.getValue().getClass().getMethod("handleRequest").invoke(entry.getValue());
+                    entry.getValue().handleRequest(); // 直接调用接口方法
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
